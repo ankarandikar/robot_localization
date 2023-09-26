@@ -62,7 +62,7 @@ class ParticleFilter(Node):
             particle_pub: a publisher for the particle cloud
             last_scan_timestamp: this is used to keep track of the clock when using bags
             scan_to_process: the scan that our run_loop should process next
-            occupancy_field: this helper class allows you to query the map for distance to closest obstacle
+    ####        occupancy_field: this helper class allows you to query the map for distance to closest obstacle
             transform_helper: this helps with various transform operations (abstracting away the tf2 module)
             particle_cloud: a list of particles representing a probability distribution over robot poses
             current_odom_xy_theta: the pose of the robot in the odometry frame when the last filter update was performed.
