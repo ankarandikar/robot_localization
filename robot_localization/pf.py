@@ -147,13 +147,13 @@ class ParticleFilter(Node):
             return
         
         (r, theta) = self.transform_helper.convert_scan_to_polar_in_robot_frame(msg, self.base_frame)
-        print("r[0]={0}, theta[0]={1}".format(r[0], theta[0]))
+        #print("r[0]={0}, theta[0]={1}".format(r[0], theta[0]))
         # clear the current scan so that we can process the next one
         self.scan_to_process = None
 
         self.odom_pose = new_pose
         new_odom_xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
-        print("x: {0}, y: {1}, yaw: {2}".format(*new_odom_xy_theta))
+        #print("x: {0}, y: {1}, yaw: {2}".format(*new_odom_xy_theta))
 
         if not self.current_odom_xy_theta:
             self.current_odom_xy_theta = new_odom_xy_theta
@@ -201,7 +201,7 @@ class ParticleFilter(Node):
         """
         new_odom_xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
         # compute the change in x,y,theta since our last update
-        if self.current_odom_xy_theta:
+        if self.current_odom_xy_theta:  # wait until we get an x y theta on startup
             old_odom_xy_theta = self.current_odom_xy_theta
             delta = (new_odom_xy_theta[0] - self.current_odom_xy_theta[0],
                      new_odom_xy_theta[1] - self.current_odom_xy_theta[1],
@@ -212,11 +212,24 @@ class ParticleFilter(Node):
             self.current_odom_xy_theta = new_odom_xy_theta
             return
 
+        # movement transform
+        M = self.transform_helper.convert_xy_theta_to_transform(delta[0],delta[1],delta[2])
+
         # TODO: modify particles using delta
+        new_particle_cloud = []
         for particle_tuple in self.particle_cloud:
-            self.particle_cloud[particle_tuple[0]] += delta[0]
-            self.particle_cloud[particle_tuple[1]] += delta[1]
-            self.particle_cloud[particle_tuple[2]] += delta[2]
+            # convert particle x, y, theta into a transform matrix
+            particle_transform = self.transform_helper.convert_xy_theta_to_transform(particle_tuple.x,particle_tuple.y,particle_tuple.theta)
+            # apply movement transform
+            new_particle = np.matmul(particle_transform,M)
+            # convert new transform matrix to x, y, theta
+            new_tuple = self.transform_helper.convert_transform_to_xy_theta(new_particle)
+            print(new_tuple)
+            # add new transform to a local particle cloud list
+            new_particle_cloud.append(Particle(x=new_tuple[0], y=new_tuple[1], theta=new_tuple[2], w=particle_tuple.w))
+        # reassign original particle cloud list to local list
+        self.particle_cloud = new_particle_cloud
+
 
     def resample_particles(self):
         """ Resample the particles according to the new particle weights.
@@ -257,7 +270,7 @@ class ParticleFilter(Node):
         w = 0.0
         for _ in range(self.n_particles):
             self.particle_cloud.append(Particle(x,y,theta,w))
-            print(self.particle_cloud)
+            #print(self.particle_cloud)
 
         self.normalize_particles()
         self.update_robot_pose()

@@ -177,3 +177,19 @@ class TFHelper(object):
                                         w=laser_pose.orientation.w)
         laser_yaw = rot.GetRPY()[2]
         return (msg.ranges, np.linspace(msg.angle_min+laser_yaw, msg.angle_max+laser_yaw, len(msg.ranges)))
+    
+    def convert_xy_theta_to_transform(self,x,y,theta):
+        """Put x, y, theta in transform matrix format."
+        """
+        return np.array([[np.cos(theta),-1.0*np.sin(theta),x], [np.sin(theta),np.cos(theta),y], [0,0,1]])
+    
+    def convert_transform_to_xy_theta(self,transform):
+        """Convert transform to x, y, theta tuple.
+        """
+        x = transform[0][2]
+        y = transform[1][2]
+        if transform[1][0] > 0:
+            theta = np.arccos(transform[0][0])
+        else:
+            theta = np.pi + np.arccos(transform[0][0])
+        return (x,y,theta)
