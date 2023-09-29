@@ -33,7 +33,7 @@ class Particle(object):
         """ Construct a new Particle
             x: the x-coordinate of the hypothesis relative to the map frame
             y: the y-coordinate of the hypothesis relative ot the map frame
-            theta: the yaw of KeyboardInterruptthe hypothesis relative to the map frame
+            theta: the yaw of the hypothesis relative to the map frame
             w: the particle weight (the class does not ensure that particle weights are normalized """ 
         self.w = w
         self.theta = theta
@@ -76,7 +76,7 @@ class ParticleFilter(Node):
         self.odom_frame = "odom"        # the name of the odometry coordinate frame
         self.scan_topic = "scan"        # the topic where we will get laser scans from 
 
-        self.n_particles = 300          # the number of particles to use
+        self.n_particles = 1          # the number of particles to use
 
         self.d_thresh = 0.2             # the amount of linear movement before performing an update
         self.a_thresh = math.pi/6       # the amount of angular movement before performing an update
@@ -213,6 +213,10 @@ class ParticleFilter(Node):
             return
 
         # TODO: modify particles using delta
+        for particle_tuple in self.particle_cloud:
+            self.particle_cloud[particle_tuple[0]] += delta[0]
+            self.particle_cloud[particle_tuple[1]] += delta[1]
+            self.particle_cloud[particle_tuple[2]] += delta[2]
 
     def resample_particles(self):
         """ Resample the particles according to the new particle weights.
@@ -247,6 +251,13 @@ class ParticleFilter(Node):
             xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
         self.particle_cloud = []
         # TODO create particles
+        x = 2.0
+        y = 2.0
+        theta = 0.0
+        w = 0.0
+        for _ in range(self.n_particles):
+            self.particle_cloud.append(Particle(x,y,theta,w))
+            print(self.particle_cloud)
 
         self.normalize_particles()
         self.update_robot_pose()
