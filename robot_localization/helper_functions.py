@@ -191,5 +191,5 @@ class TFHelper(object):
         if transform[1][0] > 0:
             theta = np.arccos(transform[0][0])
         else:
-            theta = np.pi + np.arccos(transform[0][0])
+            theta = 2*np.pi - np.arccos(transform[0][0])
         return (x,y,theta)

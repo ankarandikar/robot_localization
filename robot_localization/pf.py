@@ -224,7 +224,7 @@ class ParticleFilter(Node):
             new_particle = np.matmul(particle_transform,M)
             # convert new transform matrix to x, y, theta
             new_tuple = self.transform_helper.convert_transform_to_xy_theta(new_particle)
-            print(new_tuple)
+            print(new_tuple[0])
             # add new transform to a local particle cloud list
             new_particle_cloud.append(Particle(x=new_tuple[0], y=new_tuple[1], theta=new_tuple[2], w=particle_tuple.w))
         # reassign original particle cloud list to local list
@@ -264,8 +264,8 @@ class ParticleFilter(Node):
             xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
         self.particle_cloud = []
         # TODO create particles
-        x = 2.0
-        y = 2.0
+        x = 0.0
+        y = 0.0
         theta = 0.0
         w = 0.0
         for _ in range(self.n_particles):
