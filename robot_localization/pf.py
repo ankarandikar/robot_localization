@@ -76,7 +76,7 @@ class ParticleFilter(Node):
         self.odom_frame = "odom"        # the name of the odometry coordinate frame
         self.scan_topic = "scan"        # the topic where we will get laser scans from 
 
-        self.n_particles = 1          # the number of particles to use
+        self.n_particles = 5          # the number of particles to use
 
         self.d_thresh = 0.2             # the amount of linear movement before performing an update
         self.a_thresh = math.pi/6       # the amount of angular movement before performing an update
@@ -157,7 +157,7 @@ class ParticleFilter(Node):
 
         if not self.current_odom_xy_theta:
             self.current_odom_xy_theta = new_odom_xy_theta
-        elif not self.particle_cloud:
+        elif not self.particle_cloud:   # if particle cloud is empty, initialize it
             # now that we have all of the necessary transforms we can update the particle cloud
             self.initialize_particle_cloud(msg.header.stamp)
         elif self.moved_far_enough_to_update(new_odom_xy_theta):
@@ -213,7 +213,9 @@ class ParticleFilter(Node):
             return
 
         # movement transform
-        M = self.transform_helper.convert_xy_theta_to_transform(delta[0],delta[1],delta[2])
+        new_odom_transform = self.transform_helper.convert_xy_theta_to_transform(new_odom_xy_theta[0],new_odom_xy_theta[1],new_odom_xy_theta[2])
+        old_odom_transform = self.transform_helper.convert_xy_theta_to_transform(old_odom_xy_theta[0],old_odom_xy_theta[1],old_odom_xy_theta[2])
+        M = np.matmul(np.linalg.inv(old_odom_transform),new_odom_transform)
 
         # TODO: modify particles using delta
         new_particle_cloud = []
@@ -224,12 +226,11 @@ class ParticleFilter(Node):
             new_particle = np.matmul(particle_transform,M)
             # convert new transform matrix to x, y, theta
             new_tuple = self.transform_helper.convert_transform_to_xy_theta(new_particle)
-            print(new_tuple[0])
+            #print(new_tuple[0])
             # add new transform to a local particle cloud list
             new_particle_cloud.append(Particle(x=new_tuple[0], y=new_tuple[1], theta=new_tuple[2], w=particle_tuple.w))
         # reassign original particle cloud list to local list
         self.particle_cloud = new_particle_cloud
-
 
     def resample_particles(self):
         """ Resample the particles according to the new particle weights.
@@ -247,7 +248,26 @@ class ParticleFilter(Node):
             theta: the angle relative to the robot frame for each corresponding reading 
         """
         # TODO: implement this
-        pass
+        scan_range = len(r)
+        scan_positions = []
+        x_values = []
+        y_values = []
+        for i in range(scan_range): # Convert scans to cartesian coordinates in robot coordinate frame
+            x = r[i]*np.cos(theta[i])
+            y = r[i]*np.sin(theta[i])
+            x_values.append(x)
+            y_values.append(y)
+        for n in range(self.n_particles):
+            particle = self.particle_cloud[n]
+            # Get transform matrix for each particle
+            particle_transform = self.transform_helper.convert_xy_theta_to_transform(particle.x,particle.y,particle.theta)
+            tuple_list = []
+            for j in range(scan_range):
+                # Get laser points in map frame
+                results = np.matmul(particle_transform,[x_values[j],y_values[j],1]) # multiply particle transform by scan coordinates
+                pos_tuple = (results[0],results[1])
+                tuple_list.append(pos_tuple)    # list of xy tuples
+            scan_positions.append(tuple_list)   # list of xy tuples for each particle
 
     def update_initial_pose(self, msg):
         """ Callback function to handle re-initializing the particle filter based on a pose estimate.
@@ -260,18 +280,22 @@ class ParticleFilter(Node):
             Arguments
             xy_theta: a triple consisting of the mean x, y, and theta (yaw) to initialize the
                       particle cloud around.  If this input is omitted, the odometry will be used """
-        if xy_theta is None:
+        if xy_theta is None:    # xy_theta is the robot's pose
             xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
         self.particle_cloud = []
         # TODO create particles
-        x = 0.0
-        y = 0.0
-        theta = 0.0
-        w = 0.0
-        for _ in range(self.n_particles):
-            self.particle_cloud.append(Particle(x,y,theta,w))
-            #print(self.particle_cloud)
-
+        x_mean = xy_theta[0]
+        y_mean = xy_theta[1]
+        theta_mean = xy_theta[2]
+        x_SD = 5.0
+        y_SD = 5.0
+        theta_SD = np.pi
+        initial_weight = 1.0/self.n_particles
+        x_values = np.random.normal(x_mean,x_SD,self.n_particles)
+        y_values = np.random.normal(y_mean,y_SD,self.n_particles)
+        theta_values = np.random.normal(theta_mean,theta_SD,self.n_particles)
+        for i in range(self.n_particles):
+            self.particle_cloud.append(Particle(x_values[i],y_values[i],theta_values[i],initial_weight))
         self.normalize_particles()
         self.update_robot_pose()
 
