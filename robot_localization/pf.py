@@ -253,6 +253,7 @@ class ParticleFilter(Node):
         x_values = []
         y_values = []
         for i in range(scan_range): # Convert scans to cartesian coordinates in robot coordinate frame
+            # TODO: check for infinite or 0 values
             x = r[i]*np.cos(theta[i])
             y = r[i]*np.sin(theta[i])
             x_values.append(x)
@@ -264,8 +265,9 @@ class ParticleFilter(Node):
             tuple_list = []
             for j in range(scan_range):
                 # Get laser points in map frame
-                results = np.matmul(particle_transform,[x_values[j],y_values[j],1]) # multiply particle transform by scan coordinates
+                results = particle_transform @ np.array([x_values[j],y_values[j],1]) # multiply particle transform by scan coordinates
                 pos_tuple = (results[0],results[1])
+                overlap = self.occupancy_field.get_closest_obstacle_distance(results[0], results[1])
                 tuple_list.append(pos_tuple)    # list of xy tuples
             scan_positions.append(tuple_list)   # list of xy tuples for each particle
 
