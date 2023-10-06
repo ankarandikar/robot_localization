@@ -252,24 +252,37 @@ class ParticleFilter(Node):
         scan_positions = []
         x_values = []
         y_values = []
+        particle_weights = []
         for i in range(scan_range): # Convert scans to cartesian coordinates in robot coordinate frame
             # TODO: check for infinite or 0 values
-            x = r[i]*np.cos(theta[i])
-            y = r[i]*np.sin(theta[i])
-            x_values.append(x)
-            y_values.append(y)
+            if r[i] != np.inf:
+                x = r[i]*np.cos(theta[i])
+                y = r[i]*np.sin(theta[i])
+                x_values.append(x)
+                y_values.append(y)
+
         for n in range(self.n_particles):
             particle = self.particle_cloud[n]
             # Get transform matrix for each particle
             particle_transform = self.transform_helper.convert_xy_theta_to_transform(particle.x,particle.y,particle.theta)
-            tuple_list = []
-            for j in range(scan_range):
+            differences = []
+
+            for j in range(len(x_values)):
                 # Get laser points in map frame
                 results = particle_transform @ np.array([x_values[j],y_values[j],1]) # multiply particle transform by scan coordinates
-                pos_tuple = (results[0],results[1])
-                overlap = self.occupancy_field.get_closest_obstacle_distance(results[0], results[1])
-                tuple_list.append(pos_tuple)    # list of xy tuples
-            scan_positions.append(tuple_list)   # list of xy tuples for each particle
+                distance = self.occupancy_field.get_closest_obstacle_distance(results[0], results[1])
+                differences.append(distance)    # list of differences for each laser scan point
+
+            count = 0
+            for k in range(len(differences)):    # count number of good matches
+                if differences[k] < 0.1:
+                    count += 1
+            particle_weights.append(count)
+        
+        normalizer = 1.0//sum(particle_weights)
+        for m in range(self.n_particles):
+            particle = self.particle_cloud[m]
+            particle.w = particle_weights[m]*normalizer
 
     def update_initial_pose(self, msg):
         """ Callback function to handle re-initializing the particle filter based on a pose estimate.
@@ -289,8 +302,8 @@ class ParticleFilter(Node):
         x_mean = xy_theta[0]
         y_mean = xy_theta[1]
         theta_mean = xy_theta[2]
-        x_SD = 5.0
-        y_SD = 5.0
+        x_SD = 1.0
+        y_SD = 1.0
         theta_SD = np.pi
         initial_weight = 1.0/self.n_particles
         x_values = np.random.normal(x_mean,x_SD,self.n_particles)
