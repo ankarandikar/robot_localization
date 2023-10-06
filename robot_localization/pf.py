@@ -249,10 +249,8 @@ class ParticleFilter(Node):
         """
         # TODO: implement this
         scan_range = len(r)
-        scan_positions = []
         x_values = []
         y_values = []
-        particle_weights = []
         for i in range(scan_range): # Convert scans to cartesian coordinates in robot coordinate frame
             # TODO: check for infinite or 0 values
             if r[i] != np.inf:
@@ -277,12 +275,15 @@ class ParticleFilter(Node):
             for k in range(len(differences)):    # count number of good matches
                 if differences[k] < 0.1:
                     count += 1
-            particle_weights.append(count)
+            particle.w = count
         
-        normalizer = 1.0//sum(particle_weights)
-        for m in range(self.n_particles):
-            particle = self.particle_cloud[m]
-            particle.w = particle_weights[m]*normalizer
+        self.normalize_particles()
+        # normalizer = np.divide(1.0,sum(self.particle_weights))
+        # total = 0
+        # for m in range(self.n_particles):
+        #     particle = self.particle_cloud[m]
+        #     particle.w = self.particle_weights[m]*normalizer
+        #     total += particle.w
 
     def update_initial_pose(self, msg):
         """ Callback function to handle re-initializing the particle filter based on a pose estimate.
@@ -317,7 +318,17 @@ class ParticleFilter(Node):
     def normalize_particles(self):
         """ Make sure the particle weights define a valid distribution (i.e. sum to 1.0) """
         # TODO: implement this
-        pass
+        #total = 0
+        weight_sum = 0
+        for i in range(self.n_particles):
+            particle = self.particle_cloud[i]
+            weight_sum += particle.w
+        normalizer = np.divide(1.0,weight_sum)
+        for m in range(self.n_particles):
+            particle = self.particle_cloud[m]
+            particle.w = particle.w*normalizer
+            #total += particle.w
+        #print(total)
 
     def publish_particles(self, timestamp):
         msg = ParticleCloud()
