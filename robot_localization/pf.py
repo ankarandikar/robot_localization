@@ -76,7 +76,7 @@ class ParticleFilter(Node):
         self.odom_frame = "odom"        # the name of the odometry coordinate frame
         self.scan_topic = "scan"        # the topic where we will get laser scans from 
 
-        self.n_particles = 5          # the number of particles to use
+        self.n_particles = 200          # the number of particles to use
 
         self.d_thresh = 0.2             # the amount of linear movement before performing an update
         self.a_thresh = math.pi/6       # the amount of angular movement before performing an update
@@ -186,7 +186,13 @@ class ParticleFilter(Node):
 
         # TODO: assign the latest pose into self.robot_pose as a geometry_msgs.Pose object
         # just to get started we will fix the robot's pose to always be at the origin
-        self.robot_pose = Pose()
+        robot_x = 0
+        robot_y = 0
+        for i in range(self.n_particles):
+            particle = self.particle_cloud[i]
+            robot_x += particle.x * particle.w
+            robot_y += particle.y * particle.w
+        self.robot_pose = Pose(position=Point(x=robot_x, y=robot_y, z=0.0))
         if hasattr(self, 'odom_pose'):
             self.transform_helper.fix_map_to_odom_transform(self.robot_pose,
                                                             self.odom_pose)
@@ -241,6 +247,14 @@ class ParticleFilter(Node):
         # make sure the distribution is normalized
         self.normalize_particles()
         # TODO: fill out the rest of the implementation
+        # weight_list = []
+        # choices_list = []
+        # for i in range(self.n_particles):
+        #     particle = self.particle_cloud[i]
+        #     weight_list.append(particle.w)
+        #     choices_list.append((particle.x,particle.y,particle.w))
+        robot_position = self.transform_helper.convert_pose_to_xy_and_theta(self.robot_pose)
+        self.initialize_particle_cloud(robot_position)
 
     def update_particles_with_laser(self, r, theta):
         """ Updates the particle weights in response to the scan data
@@ -278,12 +292,6 @@ class ParticleFilter(Node):
             particle.w = count
         
         self.normalize_particles()
-        # normalizer = np.divide(1.0,sum(self.particle_weights))
-        # total = 0
-        # for m in range(self.n_particles):
-        #     particle = self.particle_cloud[m]
-        #     particle.w = self.particle_weights[m]*normalizer
-        #     total += particle.w
 
     def update_initial_pose(self, msg):
         """ Callback function to handle re-initializing the particle filter based on a pose estimate.
@@ -303,8 +311,8 @@ class ParticleFilter(Node):
         x_mean = xy_theta[0]
         y_mean = xy_theta[1]
         theta_mean = xy_theta[2]
-        x_SD = 1.0
-        y_SD = 1.0
+        x_SD = 2.5
+        y_SD = 2.5
         theta_SD = np.pi
         initial_weight = 1.0/self.n_particles
         x_values = np.random.normal(x_mean,x_SD,self.n_particles)
