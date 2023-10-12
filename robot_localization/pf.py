@@ -19,6 +19,7 @@ from occupancy_field import OccupancyField
 from helper_functions import TFHelper
 from rclpy.qos import qos_profile_sensor_data
 from angle_helpers import quaternion_from_euler
+from helper_functions import draw_random_sample
 
 class Particle(object):
     """ Represents a hypothesis (particle) of the robot's pose consisting of x,y and theta (yaw)
@@ -188,11 +189,15 @@ class ParticleFilter(Node):
         # just to get started we will fix the robot's pose to always be at the origin
         robot_x = 0
         robot_y = 0
+        robot_cos = 0
+        robot_sin = 0
         for i in range(self.n_particles):
             particle = self.particle_cloud[i]
             robot_x += particle.x * particle.w
             robot_y += particle.y * particle.w
-        self.robot_pose = Pose(position=Point(x=robot_x, y=robot_y, z=0.0))
+            robot_cos += np.cos(particle.theta)*particle.w
+            robot_sin += np.sin(particle.theta)*particle.w
+        self.robot_pose = Particle(x=robot_x, y=robot_y, theta = np.arctan2(robot_sin, robot_cos)).as_pose()
         if hasattr(self, 'odom_pose'):
             self.transform_helper.fix_map_to_odom_transform(self.robot_pose,
                                                             self.odom_pose)
@@ -223,7 +228,7 @@ class ParticleFilter(Node):
         old_odom_transform = self.transform_helper.convert_xy_theta_to_transform(old_odom_xy_theta[0],old_odom_xy_theta[1],old_odom_xy_theta[2])
         M = np.matmul(np.linalg.inv(old_odom_transform),new_odom_transform)
 
-        # TODO: modify particles using delta
+        # TODO: modify particles
         new_particle_cloud = []
         for particle_tuple in self.particle_cloud:
             # convert particle x, y, theta into a transform matrix
@@ -232,7 +237,6 @@ class ParticleFilter(Node):
             new_particle = np.matmul(particle_transform,M)
             # convert new transform matrix to x, y, theta
             new_tuple = self.transform_helper.convert_transform_to_xy_theta(new_particle)
-            #print(new_tuple[0])
             # add new transform to a local particle cloud list
             new_particle_cloud.append(Particle(x=new_tuple[0], y=new_tuple[1], theta=new_tuple[2], w=particle_tuple.w))
         # reassign original particle cloud list to local list
@@ -247,14 +251,28 @@ class ParticleFilter(Node):
         # make sure the distribution is normalized
         self.normalize_particles()
         # TODO: fill out the rest of the implementation
-        # weight_list = []
-        # choices_list = []
-        # for i in range(self.n_particles):
-        #     particle = self.particle_cloud[i]
-        #     weight_list.append(particle.w)
-        #     choices_list.append((particle.x,particle.y,particle.w))
-        robot_position = self.transform_helper.convert_pose_to_xy_and_theta(self.robot_pose)
-        self.initialize_particle_cloud(robot_position)
+        weight_list = []
+        for i in range(self.n_particles):
+            particle = self.particle_cloud[i]
+            weight_list.append(particle.w)
+        new_particles = draw_random_sample(self.particle_cloud,weight_list,self.n_particles)
+        self.particle_cloud = new_particles
+        self.normalize_particles()
+        # for j in range(self.n_particles):
+        #     particle = self.particle_cloud[j]
+        #     particle.w = 1.0/self.n_particles
+        
+        self.add_noise_to_particles()
+
+        # robot_position = self.transform_helper.convert_pose_to_xy_and_theta(self.robot_pose)
+        # self.initialize_particle_cloud(robot_position)
+
+    def add_noise_to_particles(self):
+        sigma = 0.05
+        for p in self.particle_cloud:
+            p.x += np.random.normal(0.0,sigma)
+            p.y += np.random.normal(0.0,sigma)
+            p.theta += np.random.normal(0.0,sigma)
 
     def update_particles_with_laser(self, r, theta):
         """ Updates the particle weights in response to the scan data
@@ -311,9 +329,9 @@ class ParticleFilter(Node):
         x_mean = xy_theta[0]
         y_mean = xy_theta[1]
         theta_mean = xy_theta[2]
-        x_SD = 2.5
-        y_SD = 2.5
-        theta_SD = np.pi
+        x_SD = 0.2
+        y_SD = 0.2
+        theta_SD = 0.05
         initial_weight = 1.0/self.n_particles
         x_values = np.random.normal(x_mean,x_SD,self.n_particles)
         y_values = np.random.normal(y_mean,y_SD,self.n_particles)

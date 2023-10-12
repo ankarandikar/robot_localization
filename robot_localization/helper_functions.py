@@ -188,7 +188,7 @@ class TFHelper(object):
         """
         x = transform[0][2]
         y = transform[1][2]
-        theta = np.arctan2(y,x)
+        theta = np.arctan2(transform[1][0], transform[0][0])
         # if transform[1][0] > 0:
         #     theta = np.arccos(transform[0][0])
         # else:
