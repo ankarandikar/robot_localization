@@ -27,8 +27,8 @@ To perform the particle position updates, we found a transformation matrix `M` r
 <p align="center">
 $$
 \left(\begin{array}{cc} 
-cos(theta) & -sin(theta) & x\\
-sin(theta) & cos(theta) & y \\
+\text{cos(theta)} & \text{-sin(theta)} & \text{x}\\
+\text{sin(theta)} & \text{cos(theta)} & \text{y} \\
 0 & 0 & 1
 \end{array}\right)
 $$
