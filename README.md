@@ -15,9 +15,9 @@ Our particle filter works in the following steps:
 3. Transform each particle’s pose according to robot’s motion: <br>
     If the robot has moved enough, create a transformation matrix from its previous pose to its current pose. Loop through the list of particles in `particle_cloud` and apply this transformation matrix to each particle (each particle undergoes the same relative position and orientation change as the robot has, just in its own coordinate frame).
 4. Check for good matches: <br>
-    Use a transformation matrix for each particle’s pose to project the points of the robot’s laser scans onto each particle’s coordinate frame. Compare the distances between where each particle expects the obstacles in the map to be to the actual obstalces in the map. For each particle, count the number of transformed laser scan points with a difference below a certain threshold to act as the weight. For example, the weight for a particle with no "good" matches is 0. Normalize the weights by dividing them all by the sum of all weights.
+    Use a transformation matrix for each particle’s pose to project the points of the robot’s laser scans onto each particle’s coordinate frame. Compare the distances between where each particle expects the obstacles in the map to be to the actual obstacles in the map. For each particle, count the number of transformed laser scan points with a difference below a certain threshold to act as the weight. For example, the weight for a particle with no "good" matches is 0. Normalize the weights by dividing them all by the sum of all weights.
 5. Update our estimation of the robot’s pose based on our "good" particle poses: <br>
-    Multiply the weight of each particle by its `x` value and sum them to get a weighted average of all the `x` values. Do the same for y values. Multiply the particle weights by the cosine and sine of their `theta` values to find the mean `cos(theta)` and `sin(theta)` values. Find the actual average `theta` by taking the inverse tangent of the mean sine and cosine values. Set the new robot pose to the mean `x`, `y`, and `theta` values just found.
+    Multiply the weight of each particle by its `x` value and sum them to get a weighted average of all of the `x` values. Do the same for y values. Multiply the particle weights by the cosine and sine of their `theta` values to find the mean `cos(theta)` and `sin(theta)` values. Find the actual average `theta` by taking the inverse tangent of the mean sine and cosine values. Set the new robot pose to the mean `x`, `y`, and `theta` values just found.
 6. Resample the particle cloud: <br>
     Sample particles from the `particle_cloud` list with probabilities based on each particle’s weight. Normalize the weights of the new particles and add noise to the particles with another Gaussian distribution so that they are not all in overlapping poses.
 After resampling the particle cloud, steps 3-6 are repeated.
@@ -36,7 +36,7 @@ $$
 $$
 </p>
 
-Since the old and new positions of the robot were known due to its on-board odometry, we put the positions in matrix form and found `M` with the following equation:
+Since the old and new poses of the robot were known due to its on-board odometry, we put the poses in matrix form and found `M` with the following equation:
 <p align="center">
 $\text{M} = \text{old\_odom\_pose}^{-1} \times \text{new\_odom\_pose}$
 </p>
