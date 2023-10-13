@@ -184,19 +184,25 @@ class ParticleFilter(Node):
         # first make sure that the particle weights are normalized
         self.normalize_particles()
 
-        # TODO: assign the latest pose into self.robot_pose as a geometry_msgs.Pose object
-        # just to get started we will fix the robot's pose to always be at the origin
+        # initialize variables to add weighted averages to
         robot_x = 0
         robot_y = 0
         robot_cos = 0
         robot_sin = 0
-        for i in range(self.n_particles):
+
+        for i in range(self.n_particles):   # loop through all particles
             particle = self.particle_cloud[i]
+
+            # take weighted averages by multiplying values by particle weight
             robot_x += particle.x * particle.w
             robot_y += particle.y * particle.w
             robot_cos += np.cos(particle.theta)*particle.w
             robot_sin += np.sin(particle.theta)*particle.w
+        
+        # set robot pose to weighted averaged x, y, and theta derived from averaged sine and cosine
         self.robot_pose = Particle(x=robot_x, y=robot_y, theta = np.arctan2(robot_sin, robot_cos)).as_pose()
+
+        # update offset of map
         if hasattr(self, 'odom_pose'):
             self.transform_helper.fix_map_to_odom_transform(self.robot_pose,
                                                             self.odom_pose)
@@ -237,8 +243,8 @@ class ParticleFilter(Node):
             new_tuple = self.transform_helper.convert_transform_to_xy_theta(new_particle)
             # add new position to a local particle cloud list
             new_particle_cloud.append(Particle(x=new_tuple[0], y=new_tuple[1], theta=new_tuple[2], w=particle_tuple.w))
-        # reassign original particle cloud list to local list
-        self.particle_cloud = new_particle_cloud
+        
+        self.particle_cloud = new_particle_cloud    # reassign original particle cloud list to local list
 
     def resample_particles(self):
         """ Resample the particles according to the new particle weights.
@@ -248,25 +254,28 @@ class ParticleFilter(Node):
         """
         # make sure the distribution is normalized
         self.normalize_particles()
-        # TODO: fill out the rest of the implementation
+
+        # assign particle weights to a new list
         weight_list = []
         for i in range(self.n_particles):
             particle = self.particle_cloud[i]
             weight_list.append(particle.w)
-        new_particles = draw_random_sample(self.particle_cloud,weight_list,self.n_particles)
-        self.particle_cloud = new_particles
-        self.normalize_particles()
-        # for j in range(self.n_particles):
-        #     particle = self.particle_cloud[j]
-        #     particle.w = 1.0/self.n_particles
         
+        # sample n particles from particle_cloud list with a distribution defined by the weights
+        new_particles = draw_random_sample(self.particle_cloud,weight_list,self.n_particles)
+
+        self.particle_cloud = new_particles # reassign original particle cloud list to local list
+
+        self.normalize_particles()  # make sure particles are normalized
         self.add_noise_to_particles()
 
-        # robot_position = self.transform_helper.convert_pose_to_xy_and_theta(self.robot_pose)
-        # self.initialize_particle_cloud(robot_position)
-
     def add_noise_to_particles(self):
-        sigma = 0.05
+        """Add noise to the particle positions and orientations.
+           The added noise is determined by sampling from a normal distribution centered at 0 (no noise).
+        """
+        sigma = 0.05    # standard deviation of noise distribution
+
+        # add noise to x, y, and theta
         for p in self.particle_cloud:
             p.x += np.random.normal(0.0,sigma)
             p.y += np.random.normal(0.0,sigma)
@@ -277,7 +286,6 @@ class ParticleFilter(Node):
             r: the distance readings to obstacles
             theta: the angle relative to the robot frame for each corresponding reading 
         """
-        # TODO: implement this
         scan_range = len(r)
         x_values = []
         y_values = []
