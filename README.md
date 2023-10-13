@@ -36,12 +36,12 @@ $$
 
 Since the old and new positions of the robot were known due to its on-board odometry, we put the positions in matrix form and found `M` with the following equation:
 <p align="center">
-$M = old_odom_pose^{-1} \times new_odom_pose$
+$\text{M} = \text{old_odom_pose}^{-1} \times \text{new_odom_pose}$
 </p>
 
 From the known old particle poses, we could then find the new particle poses with:
 <p align="center">
-$new_particle_pose = old_particle_pose \times M$
+$\text{new_particle_pose} = \text{old_particle_pose} \times \text{M}$
 </p>
 
 # Challenges
