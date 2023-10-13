@@ -175,7 +175,6 @@ class ParticleFilter(Node):
                math.fabs(new_odom_xy_theta[1] - self.current_odom_xy_theta[1]) > self.d_thresh or \
                math.fabs(new_odom_xy_theta[2] - self.current_odom_xy_theta[2]) > self.a_thresh
 
-
     def update_robot_pose(self):
         """ Update the estimate of the robot's pose given the updated particles.
             There are two logical methods for this:
@@ -217,27 +216,26 @@ class ParticleFilter(Node):
             delta = (new_odom_xy_theta[0] - self.current_odom_xy_theta[0],
                      new_odom_xy_theta[1] - self.current_odom_xy_theta[1],
                      new_odom_xy_theta[2] - self.current_odom_xy_theta[2])
-
             self.current_odom_xy_theta = new_odom_xy_theta
         else:
             self.current_odom_xy_theta = new_odom_xy_theta
             return
 
-        # movement transform
+        # convert old and new robot positions into matrices
         new_odom_transform = self.transform_helper.convert_xy_theta_to_transform(new_odom_xy_theta[0],new_odom_xy_theta[1],new_odom_xy_theta[2])
         old_odom_transform = self.transform_helper.convert_xy_theta_to_transform(old_odom_xy_theta[0],old_odom_xy_theta[1],old_odom_xy_theta[2])
-        M = np.matmul(np.linalg.inv(old_odom_transform),new_odom_transform)
+        M = np.matmul(np.linalg.inv(old_odom_transform),new_odom_transform) # get transformation matrix from robot position matrices
 
-        # TODO: modify particles
+        # modify particles
         new_particle_cloud = []
         for particle_tuple in self.particle_cloud:
-            # convert particle x, y, theta into a transform matrix
+            # convert particle's x, y, theta positions into a matrix
             particle_transform = self.transform_helper.convert_xy_theta_to_transform(particle_tuple.x,particle_tuple.y,particle_tuple.theta)
-            # apply movement transform
+            # apply transformation matrix
             new_particle = np.matmul(particle_transform,M)
-            # convert new transform matrix to x, y, theta
+            # convert resulting matrix to new x, y, theta position
             new_tuple = self.transform_helper.convert_transform_to_xy_theta(new_particle)
-            # add new transform to a local particle cloud list
+            # add new position to a local particle cloud list
             new_particle_cloud.append(Particle(x=new_tuple[0], y=new_tuple[1], theta=new_tuple[2], w=particle_tuple.w))
         # reassign original particle cloud list to local list
         self.particle_cloud = new_particle_cloud
@@ -283,29 +281,37 @@ class ParticleFilter(Node):
         scan_range = len(r)
         x_values = []
         y_values = []
-        for i in range(scan_range): # Convert scans to cartesian coordinates in robot coordinate frame
-            # TODO: check for infinite or 0 values
-            if r[i] != np.inf:
+
+        # convert scans to cartesian coordinates in robot coordinate frame
+        for i in range(scan_range):
+            if r[i] != np.inf:  # check for invalid scans (equal to infinity)
                 x = r[i]*np.cos(theta[i])
                 y = r[i]*np.sin(theta[i])
                 x_values.append(x)
                 y_values.append(y)
 
+        # get a new weight for each particle
         for n in range(self.n_particles):
             particle = self.particle_cloud[n]
-            # Get transform matrix for each particle
-            particle_transform = self.transform_helper.convert_xy_theta_to_transform(particle.x,particle.y,particle.theta)
+
+            # convert particle position to matrix
+            particle_matrix = self.transform_helper.convert_xy_theta_to_transform(particle.x,particle.y,particle.theta)
+
+            # store the distances between particle scan readings and the closest obstacle
             differences = []
+            for j in range(len(x_values)):  # for each laser scan reading
+                # get the laser scan reading in the particle coordinate frame
+                results = particle_matrix @ np.array([x_values[j],y_values[j],1]) # multiply particle transform by scan coordinates
 
-            for j in range(len(x_values)):
-                # Get laser points in map frame
-                results = particle_transform @ np.array([x_values[j],y_values[j],1]) # multiply particle transform by scan coordinates
+                # get the distance to the closest obstacle for each scan reading
                 distance = self.occupancy_field.get_closest_obstacle_distance(results[0], results[1])
-                differences.append(distance)    # list of differences for each laser scan point
 
+                differences.append(distance)    # list of distances for each laser scan point
+
+            # count the number of "good" distances (within a threshold)
             count = 0
-            for k in range(len(differences)):    # count number of good matches
-                if differences[k] < 0.1:
+            for k in range(len(differences)):
+                if differences[k] < 0.1:    # if the distance is below 0.1
                     count += 1
             particle.w = count
         
@@ -325,26 +331,33 @@ class ParticleFilter(Node):
         if xy_theta is None:    # xy_theta is the robot's pose
             xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
         self.particle_cloud = []
-        # TODO create particles
+
+        # set the mean of the normal distributions of x, y, and theta at the robot's position
         x_mean = xy_theta[0]
         y_mean = xy_theta[1]
         theta_mean = xy_theta[2]
+
+        # experimentally set standard deviations
         x_SD = 0.2
         y_SD = 0.2
         theta_SD = 0.05
-        initial_weight = 1.0/self.n_particles
+
+        initial_weight = 1.0/self.n_particles   # all particles have the same weight
+
+        # select n values of x, y, and theta from the normal distributions
         x_values = np.random.normal(x_mean,x_SD,self.n_particles)
         y_values = np.random.normal(y_mean,y_SD,self.n_particles)
         theta_values = np.random.normal(theta_mean,theta_SD,self.n_particles)
+
+        # create Particles with the x, y, theta values and append to the particle cloud
         for i in range(self.n_particles):
             self.particle_cloud.append(Particle(x_values[i],y_values[i],theta_values[i],initial_weight))
-        self.normalize_particles()
-        self.update_robot_pose()
+        
+        self.normalize_particles()  # make sure particle weights add to 1.0
+        self.update_robot_pose()    # update robot pose after initializing particles
 
     def normalize_particles(self):
         """ Make sure the particle weights define a valid distribution (i.e. sum to 1.0) """
-        # TODO: implement this
-        #total = 0
         weight_sum = 0
         for i in range(self.n_particles):
             particle = self.particle_cloud[i]
@@ -353,8 +366,6 @@ class ParticleFilter(Node):
         for m in range(self.n_particles):
             particle = self.particle_cloud[m]
             particle.w = particle.w*normalizer
-            #total += particle.w
-        #print(total)
 
     def publish_particles(self, timestamp):
         msg = ParticleCloud()
