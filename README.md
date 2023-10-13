@@ -4,7 +4,8 @@
 
 # Goal
 The goal of this project was to learn about and utilize a new algorithm (particle filtering) in order to perform robot localization such that we can locate a robot in a known map and maintain knowledge of its location. Additionally, we wanted to increase our familiarity with ROS and get comfortable with transforming points between different reference frames.
-``
+[Watch a live demo of our particle filter here.](https://youtu.be/9u_ldvQo8aA)
+
 # Methodology
 Our particle filter works in the following steps:
 1. Retrieve the pose of the robot in the odom frame.
